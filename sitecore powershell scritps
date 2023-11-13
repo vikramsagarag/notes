@@ -1,0 +1,142 @@
+############################ List the CacheHTML settings for all SXA sites ############################
+$sitesRootItems = Get-Item -Path "/sitecore/content/Brand Sites/rootfolder" | Get-ChildItem
+
+foreach ($siteRoot in $sitesRootItems) {
+    Write-Host "Site: $siteRoot.ItemPath"
+    
+    $siteRootPath = $siteRoot.ItemPath #"/sitecore/content/Brand Sites/rootfolder/siterootfolder" # Replace with the actual root path of your SXA site
+    
+    $siteGroupingItems = Get-Item -Path "$siteRootPath/Settings/Site Grouping" | Get-ChildItem
+    
+    foreach ($siteItem in $siteGroupingItems) {
+        $siteName = $siteItem.Name
+        $cacheHtml = $siteItem.Fields["CacheHtml"]
+    
+        Write-Host "Site: $siteName"
+        Write-Host "Cache HTML: $cacheHtml"
+        Write-Host "-------------------"
+    }
+}
+############################ STOP : List the CacheHTML settings for all SXA sites ############################
+
+############################Script for listing the caching settings for all the renderings  in table view ###########
+$renderingsPath = "/sitecore/layout/Renderings/Feature" # Replace with the actual path of the rendering items root
+
+# Get all rendering items under the specified path
+$renderingItems = Get-ChildItem -Path $renderingsPath -Recurse | Where-Object { $_.TemplateName -ne "Rendering Folder" }
+
+if ($renderingItems -ne $null)
+{
+    $table = @()
+
+    foreach ($renderingItem in $renderingItems)
+    {
+        $renderingPath = $renderingItem.ItemPath
+        $cachingEnabled = $renderingItem["Cacheable"]
+        $varyByData = $renderingItem["VaryByData"]
+        $varyByDevice = $renderingItem["VaryByDevice"]
+		$varyByDevice = $renderingItem["VaryByDevice"]
+		$clearOnIndexUpdate = $renderingItem["ClearOnIndexUpdate"]
+		$varyByLogin = $renderingItem["VaryByLogin"]
+		$varyByParm = $renderingItem["VaryByParm"]
+		$varyByQueryString = $renderingItem["VaryByQueryString"]
+		$varyByUser = $renderingItem["VaryByUser"]
+		$varyByUrl = $renderingItem["VaryByUrl"]
+		$varyByRenderingId = $renderingItem["VaryByRenderingId"]
+		$varyByRequestHeader = $renderingItem["VaryByRequestHeader"]
+        # ... other caching flag properties
+
+        $row = [PSCustomObject]@{
+            RenderingPath = $renderingPath
+            CachingEnabled = $cachingEnabled
+            VaryByData = $varyByData
+            VaryByDevice = $varyByDevice
+			ClearOnIndexUpdate = $clearOnIndexUpdate
+			VaryByLogin = $varyByLogin
+			VaryByParm = $varyByParm
+			VaryByQueryString = $varyByQueryString
+			VaryByUser = $varyByUser
+			VaryByUrl = $varyByUrl
+			VaryByRenderingId = $varyByRenderingId
+			VaryByRequestHeader = $varyByRequestHeader
+		
+            # ... other caching flag properties
+        }
+
+        $table += $row
+    }
+
+    # Output the table in a formatted manner
+    $table | Show-ListView
+}
+else
+{
+    Write-Host "No rendering items found under path: $renderingsPath"
+}
+
+############################STOP : Script for listing the caching settings for all the renderings  in table view ######
+
+
+#Get the Rendering in the path, excluding folder
+$renderings = Get-ChildItem -Path 'master:/sitecore/layout/renderings/feature' -Recurse |
+Where-Object { $_.TemplateName -ne 'Rendering Folder' }
+ 
+$myArray = New-Object System.Collections.ArrayList
+ 
+foreach ($rendering in $renderings) {
+    $links = $rendering | Get-ItemReferrer -ErrorAction SilentlyContinue
+ 
+    #If there are no Referrers, add the rendering to the result
+    if ($links.Count -eq 0) {
+        [void]$myArray.Add($rendering)
+    }
+}
+$myArray | Show-ListView  -Property Name, 
+@{Label="ItemID"; Expression={ $_.ID } },
+@{ Label = 'Path'; Expression = { $_.Paths.Path } }
+############################STOP : Get the Rendering in the path, excluding folder ######
+############################START : sitecore powershell script to compare Title filed value is same in spain and portugal language versions of all product items : got from colleagues, for reference ######
+
+# Specify the path where you want to start the search for product items
+$startPath = "/sitecore/content/Brand Sites/siterootfolderpath/Data/productrootfolder"
+
+# Specify the field name you want to compare (e.g., "ProductId")
+$fieldName = "Product Id"
+
+# Create an empty array to store the result
+$results = @()
+
+# Get all items under the specified path
+$items = Get-ChildItem -Path $startPath -Recurse | Where-Object { $_.TemplateName -match "Product" }
+
+# Loop through each item and compare the ProductId field values in different language versions
+foreach ($item in $items) {
+    $productId = $item.ID
+    $productName = $item.Name
+
+    # Get the Spanish (es-ES) and Portuguese (pt-BR) language versions
+    $spanishVersion = Get-Item -Path $item.Paths.FullPath -Language "es-ES" #$languageCode | Where-Object { $_.Language.Name -eq "es-ES" }
+    $portugueseVersion = Get-Item -Path $item.Paths.FullPath -Language "pt-PT"
+
+    if ($spanishVersion -and $portugueseVersion) {
+        $spanishProductId = $spanishVersion[$fieldName]
+        $portugueseProductId = $portugueseVersion[$fieldName]
+
+        # Compare the field values
+        if ($spanishProductId -eq $portugueseProductId) {
+            $result = [PSCustomObject]@{
+                "Product ID" = $productId.Guid
+                "Product Name" = $productName
+                "ProductId (Spanish)" = $spanishProductId
+                "ProductId (Portuguese)" = $portugueseProductId
+            }
+            $results += $result
+        }
+    }
+}
+
+# Export the results to a CSV file
+$results | Show-ListView
+
+############################STOP: sitecore powershell script to compare Title filed value is same in spain and portugal language versions of all product items ######
+
